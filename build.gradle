@@ -4,6 +4,7 @@ plugins {
 	id "com.jfrog.artifactory" version "4.7.5"
 	id "com.gradle.plugin-publish" version "0.10.0"
     id 'com.github.ben-manes.versions' version '0.20.0'
+    id 'java-gradle-plugin' //https://docs.gradle.org/current/userguide/plugins.html#sec:plugin_markers
 }
 
 apply plugin: 'groovy'
@@ -17,7 +18,18 @@ archivesBaseName = 'jmeter-gradle-plugin'
 ext.thisPluginVersion="1.1.2"
 ext.jmVersion = "5.0"
 ext.jmPluginVersion = "1.4.0"
-version = "$thisPluginVersion-$jmVersion-SNAPSHOT"
+version = "$thisPluginVersion-$jmVersion-20200324"
+//version = "$thisPluginVersion-$jmVersion-SNAPSHOT"
+
+gradlePlugin {
+    plugins {
+        jmeter {  //https://docs.gradle.org/current/userguide/plugins.html#sec:plugin_markers
+            id = 'io.quintessent.jmeter'
+            implementationClass = 'io.quintessent.jmeter.gradle.plugins.JMPlugin'
+        }
+    }
+}
+
 
 //--- Repositories ---
 repositories {
@@ -160,9 +172,10 @@ def pomConfig = {
 	}
 }
 
+//gradle.publish.key and gradle.publish.secret
 publishing {
     publications {
-        mavenJava(MavenPublication) {
+        [mavenJava(MavenPublication) {
 			//Workaround for gradle plugin-publish defect: https://issues.gradle.org/browse/GRADLE-3274
             //since maven-publish refuses to propogate exclusions to pom, DIY. :(
 			from(components.java)
@@ -191,52 +204,73 @@ publishing {
 			}
 			artifact sourcesJar
 			artifact javadocJar
-        }
+        },
+//        pluginPublication (MavenPublication) {
+        // pluginPublicationX (MavenPublication) {
+        //     from    components.java
+        //     groupId    project.group
+        //     artifactId  project.archivesBaseName
+        //     version    project.version
+		// 	artifact jar
+        //     }
+            ]
+}
+    repositories {
+        // maven {
+        //     mavenLocal()
+        // }
+        // maven {
+        //     url "http://nexus.local/content/repositories/snapshots"
+        //     credentials {
+        //         username = 'admin'
+        //         password = 'admin'
+        //     }
+        // }
     }
 }
 
 //--- bintray publishing ---
-//       for Releases
-bintrayUpload.onlyIf {
-	!(version ==~ /.*SNAPSHOT/)
-}
-bintray {
-	user = System.getenv('bintray_user')
-	key = System.getenv('bintray_api_key')
+// //       for Releases
+// bintrayUpload.onlyIf {
+// 	!(version ==~ /.*SNAPSHOT/)
+// }
+// bintray {
+// 	user = System.getenv('bintray_user')
+// 	key = System.getenv('bintray_api_key')
 	
-    publications = ['mavenJava'] //When uploading Maven-based publication files
-    publish = true //If version should be auto published after an upload
-    pkg {
-        repo = "gradle-plugins"
-        name = "$archivesBaseName"
-        userOrg = "noelob"
-        licenses = ['Apache-2.0']
-        publicDownloadNumbers = true
-        websiteUrl = 'https://github.com/noelob/jmeter-gradle-plugin'
-        issueTrackerUrl = 'https://github.com/noelob/jmeter-gradle-plugin/issues'
-        vcsUrl = 'https://github.com/noelob/jmeter-gradle-plugin.git'
+//     publications = ['mavenJava'] //When uploading Maven-based publication files
+//     publish = true //If version should be auto published after an upload
+//     pkg {
+//         repo = "gradle-plugins"
+//         name = "$archivesBaseName"
+//         userOrg = "noelob"
+//         licenses = ['Apache-2.0']
+//         publicDownloadNumbers = true
+//         websiteUrl = 'https://github.com/noelob/jmeter-gradle-plugin'
+//         issueTrackerUrl = 'https://github.com/noelob/jmeter-gradle-plugin/issues'
+//         vcsUrl = 'https://github.com/noelob/jmeter-gradle-plugin.git'
 
-        version {
-            name = project.version //Bintray logical version name
-            released = new Date()
-            gpg { sign = true }
+//         version {
+//             name = project.version //Bintray logical version name
+//             released = new Date()
+//             gpg { sign = true }
             
-			//Optional configuration for Maven Central sync of the version
-            mavenCentralSync {
-                sync = false //true by default
-                user = 'userToken' //OSS user token
-                password = 'paasword' //OSS user password
-                close = '0' //Optional property. By default the staging repository is closed and artifacts are released to Maven Central. You can optionally turn this behaviour off (by putting 0 as value) and release the version manually.
-            }            
-        }
-    }
-}
+// 			//Optional configuration for Maven Central sync of the version
+//             mavenCentralSync {
+//                 sync = false //true by default
+//                 user = 'userToken' //OSS user token
+//                 password = 'paasword' //OSS user password
+//                 close = '0' //Optional property. By default the staging repository is closed and artifacts are released to Maven Central. You can optionally turn this behaviour off (by putting 0 as value) and release the version manually.
+//             }            
+//         }
+//     }
+// }
 
 //--- gradle publishing ---
 //       for Releases
-publishPlugins.onlyIf {
-	!(version ==~ /.*SNAPSHOT/)
-}
+// publishPlugins.onlyIf {
+// 	!(version ==~ /.*SNAPSHOT/)
+// }
 pluginBundle {
     website = 'https://github.com/noelob/jmeter-gradle-plugin'
     vcsUrl = 'https://github.com/noelob/jmeter-gradle-plugin.git'
@@ -251,26 +285,27 @@ pluginBundle {
     }
 }
 
-//--- oss.jfrog artifactory publishing ---
-//         For SNAPSHOT publishing
-artifactory {
-	contextUrl = 'https://oss.jfrog.org/artifactory'
-	publish {
-		repository {
-			repoKey = 'oss-snapshot-local'
-			username = System.getenv('bintray_user')
-			password = System.getenv('bintray_api_key')
-		}
+// //--- oss.jfrog artifactory publishing ---
+// //         For SNAPSHOT publishing
+// artifactory {
+// 	contextUrl = 'https://oss.jfrog.org/artifactory'
+// 	publish {
+// 		repository {
+// 			repoKey = 'oss-snapshot-local'
+// 			username = System.getenv('bintray_user')
+// 			password = System.getenv('bintray_api_key')
+// 		}
 
-		defaults {
-			publications('mavenJava')
-		}
-	}
-	resolve {
-		repository {
-			repoKey = 'oss-snapshot-local'
-			username = System.getenv('bintray_user')
-			password = System.getenv('bintray_api_key')
-		}
-	}
-}
+
+// 		defaults {
+// 			publications('mavenJava')
+// 		}
+// 	}
+// 	resolve {
+// 		repository {
+// 			repoKey = 'oss-snapshot-local'
+// 			username = System.getenv('bintray_user')
+// 			password = System.getenv('bintray_api_key')
+// 		}
+// 	}
+// }
